@@ -249,17 +249,6 @@ else
 fi
 
 
-# libnetlink.h is required
-AC_CHECK_HEADERS([libnetlink.h], [], [], [[#include <sys/socket.h>
-#include <stdio.h>]])
-if test "x$ac_cv_header_libnetlink_h" != "xyes" ; then
-	echo
-	echo "ERROR: libnetlink.h header not found"
-	echo
-	echo "Please install iproute2 and its header files."
-	echo
-	exit 1
-fi
 # check whether rtnl_talk() takes 5 or 7 arguments
 AC_MSG_CHECKING([how many arguments rtnl_talk takes])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>

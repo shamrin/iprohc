@@ -15,8 +15,7 @@ libiprohc_common_la_SOURCES = \
 
 libiprohc_common_la_LIBADD = \
 	-lgnutls \
-	-lrohc \
-	-lnetlink
+	-lrohc
 
 libiprohc_common_la_LDFLAGS = \
 	$(configure_ldflags)

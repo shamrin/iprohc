@@ -231,7 +231,7 @@ static bool handle_okconnect(struct iprohc_client_session *const client,
 	}
 
 	/* set the IPv4 address on the TUN interface */
-	is_ok = set_ip4(client->tun_itf_id, tp.local_address, 24);
+	is_ok = set_ip4(client->tun_name, tp.local_address, 24);
 	if(!is_ok)
 	{
 		trace(LOG_ERR, "failed to set IP address on TUN interface");

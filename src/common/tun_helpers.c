@@ -30,7 +30,6 @@ along with iprohc.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <string.h>
 #include <netinet/ip.h>
-#include <libnetlink.h>
 
 #include "log.h"
 #include "tun_helpers.h"
@@ -256,72 +255,26 @@ error:
 }
 
 
-bool set_ip4(int iface_index, uint32_t address, uint8_t network)
+bool set_ip4(const char * const iface_name, uint32_t address, uint8_t network)
 {
-	bool is_success = false;
+	char set_ip_cmd[128];
 	int ret;
-	struct {
-		struct nlmsghdr nh;
-		struct ifaddrmsg ip;
-		char buf[256];
-	} req;
-	struct rtnl_handle rth = { .fd = -1 };
-	uint32_t *ip_data;
 
-	ret = rtnl_open(&rth, 0);
-	if(ret < 0)
-	{
-		trace(LOG_ERR, "failed to open RTNL socket (code %d)", ret);
-		goto error;
+	if((ret = snprintf(set_ip_cmd, sizeof set_ip_cmd,
+			   "ip addr add %u.%u.%u.%u/%u dev %s",
+			   (ntohl(address) >> 24) & 0xff, (ntohl(address) >> 16) & 0xff,
+			   (ntohl(address) >>  8) & 0xff, (ntohl(address) >>  0) & 0xff,
+			   network, iface_name)) < 0) {
+		trace(LOG_ERR, "set_ip4: snprintf(set_ip_cmd, ...) returned %d", ret);
+		return false;
 	}
 
-	ip_data = calloc(8, sizeof(uint32_t));
-	if(ip_data == NULL)
-	{
-		trace(LOG_ERR, "failed to allocate memory for setting IPv4 address");
-		goto close_rtnl;
-	}
-	ip_data[0] = address;
-
-	/* initialize netlink request */
-	memset(&req, 0, sizeof(req));
-	req.nh.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-	req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL;
-	req.nh.nlmsg_type = RTM_NEWADDR;
-
-	/* ifaddrmsg info */
-	req.ip.ifa_family = AF_INET;         /* IPv4 */
-	req.ip.ifa_prefixlen = network;
-	req.ip.ifa_index = iface_index;
-
-	addattr_l(&req.nh, sizeof(req), IFA_LOCAL,   ip_data, 4);
-	addattr_l(&req.nh, sizeof(req), IFA_ADDRESS, ip_data, 4);
-
-	/* GOGOGO */
-#if RTNL_TALK_PARAMS == 5
-	ret = rtnl_talk(&rth, &req.nh, 0, 0, NULL);
-#elif RTNL_TALK_PARAMS == 7
-	ret = rtnl_talk(&rth, &req.nh, 0, 0, NULL, NULL, NULL);
-#else
-#  error "unsupported version of rtnl_talk()"
-#endif
-	if(ret < 0)
-	{
-		trace(LOG_ERR, "failed to set IPv4 address %u.%u.%u.%u/%u (code %d)",
-		      (ntohl(address) >> 24) & 0xff, (ntohl(address) >> 16) & 0xff,
-		      (ntohl(address) >>  8) & 0xff, (ntohl(address) >>  0) & 0xff,
-		      network, ret);
-		goto free_ip_data;
+       	if((ret = system(set_ip_cmd)) != 0) {
+		trace(LOG_ERR, "set_ip4: failed to run `%s` (code %d)", set_ip_cmd, ret);
+		return false;
 	}
 
-	is_success = true;
-
-free_ip_data:
-	free(ip_data);
-close_rtnl:
-	rtnl_close(&rth);
-error:
-	return is_success;
+	return true;
 }
 
 

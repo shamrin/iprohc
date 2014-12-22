@@ -58,6 +58,8 @@ along with iprohc.  If not, see <http://www.gnu.org/licenses/>.
 	} \
 	while(0)
 
+#define TUN_IF_NAME "tun_ipip"
+
 
 int log_max_priority = LOG_INFO;
 bool iprohc_log_stderr = true;
@@ -456,7 +458,7 @@ int main(int argc, char *argv[])
 
 	/* TUN create */
 	trace(LOG_INFO, "[main] create TUN interface");
-	tun = create_tun("tun_ipip", server_opts.basedev,
+	tun = create_tun(TUN_IF_NAME, server_opts.basedev,
 	                 &tun_itf_id, &basedev_mtu, &tun_itf_mtu);
 	if(tun < 0)
 	{
@@ -464,7 +466,7 @@ int main(int argc, char *argv[])
 		goto close_tcp;
 	}
 
-	is_ok = set_ip4(tun_itf_id, server_opts.local_address, 24);
+	is_ok = set_ip4(TUN_IF_NAME, server_opts.local_address, 24);
 	if(!is_ok)
 	{
 		trace(LOG_ERR, "[main] failed to set IPv4 address on TUN interface");

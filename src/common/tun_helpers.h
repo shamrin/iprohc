@@ -29,7 +29,7 @@ int create_tun(const char *const name,
                size_t *const tun_itf_mtu)
 	__attribute__((warn_unused_result));
 
-bool set_ip4(int iface_index, uint32_t address, uint8_t network);
+bool set_ip4(const char * const iface_name, uint32_t address, uint8_t network);
 
 int create_raw(const int fwmark);
 
