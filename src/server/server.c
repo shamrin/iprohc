@@ -49,6 +49,10 @@ along with iprohc.  If not, see <http://www.gnu.org/licenses/>.
 #include <gnutls/pkcs12.h>
 
 
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h> 
+
 /** Print in logs a trace related to the given client */
 #define client_trace(client, prio, format, ...) \
 	do \
@@ -142,6 +146,77 @@ static void usage(void)
 }
 
 
+/**
+ * send client statistics as a UDP packet to local port
+ */
+struct udp_stats {
+  /* fields from struct statitics */
+  int decomp_failed;
+  int decomp_total;
+
+  int comp_failed;
+  int comp_total;
+
+  int head_comp_size;
+  int head_uncomp_size;
+
+  int total_comp_size;
+  int total_uncomp_size;
+
+  int unpack_failed;
+  int total_received;
+
+//  int *stats_packing;
+  int n_stats_packing;
+  
+  int stats_packing[10];
+
+  struct in_addr dst_addr;
+  struct in_addr src_addr;
+};
+
+int send_stats_udp(struct statitics *stats, struct in_addr dst_addr, struct in_addr src_addr)
+{
+    int sockfd;
+    struct sockaddr_in servaddr;
+    struct udp_stats s;
+    int i;
+
+    /* copy statitics fields */
+    s.decomp_failed = stats->decomp_failed;
+    s.decomp_total = stats->decomp_total;
+    s.comp_failed = stats->comp_failed;
+    s.comp_total = stats->comp_total;
+    s.head_comp_size = stats->head_comp_size;
+    s.head_uncomp_size = stats->head_uncomp_size;
+    s.total_comp_size = stats->total_comp_size;
+    s.total_uncomp_size = stats->total_uncomp_size;
+    s.unpack_failed = stats->unpack_failed;
+    s.total_received = stats->total_received;
+
+    /* copy statitics->stats_packing */
+    s.n_stats_packing = stats->n_stats_packing;
+    for(i = 1; i < stats->n_stats_packing; i++) {
+        s.stats_packing[i] = stats->stats_packing[i];
+    }
+
+    s.dst_addr.s_addr = dst_addr.s_addr;
+    s.src_addr.s_addr = src_addr.s_addr;
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    bzero(&servaddr,sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr=inet_addr("127.0.0.1");
+    servaddr.sin_port=htons(32032);
+
+	if(sendto( sockfd, (char *)&s, sizeof(s), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+	{
+		trace(LOG_ERR, "[main] failed to create signal fd: %s (%d)",
+		      strerror(errno), errno);
+        return -1;
+	}
+    return 0;
+}
 /**
  * @brief The main entry point of the IP/ROHC server
  *
@@ -959,6 +1034,7 @@ static void dump_stats_client(struct iprohc_server_session *const client)
 			client_trace(client, LOG_INFO, "  %d packets: %d", i,
 			             client->session.tunnel.stats.stats_packing[i]);
 		}
+		send_stats_udp(&client->session.tunnel.stats, client->session.dst_addr, client->session.src_addr);
 	}
 	client_trace(client, LOG_INFO, "--------------------------------------------");
 }
