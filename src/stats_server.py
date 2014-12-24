@@ -1,38 +1,13 @@
 import sys
+import os
+import socket
+
+import json
+
 from cffi import FFI
 ffi = FFI()
-ffi.cdef("""
-struct in_addr {
-   uint32_t       s_addr;     /* address in network byte order */
-};
-
-struct udp_stats {
-  /* fields from struct statitics */
-  int decomp_failed;
-  int decomp_total;
-
-  int comp_failed;
-  int comp_total;
-
-  int head_comp_size;
-  int head_uncomp_size;
-
-  int total_comp_size;
-  int total_uncomp_size;
-
-  int unpack_failed;
-  int total_received;
-
-  int n_stats_packing;
-  int stats_packing[10];
-
-  struct in_addr dst_addr;
-  struct in_addr src_addr;
-};
-""")
-
-import socket
-import json
+ffi.cdef(open(os.path.dirname(os.path.abspath(__file__)) +
+              '/server/stats.h').read())
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 32032

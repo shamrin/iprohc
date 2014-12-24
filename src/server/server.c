@@ -25,6 +25,7 @@ along with iprohc.  If not, see <http://www.gnu.org/licenses/>.
 #include "rohc_tunnel.h"
 #include "log.h"
 #include "utils.h"
+#include "stats.h"
 
 #include "config.h"
 
@@ -149,40 +150,14 @@ static void usage(void)
 /**
  * send client statistics as a UDP packet to local port
  */
-struct udp_stats {
-  /* fields from struct statitics */
-  int decomp_failed;
-  int decomp_total;
-
-  int comp_failed;
-  int comp_total;
-
-  int head_comp_size;
-  int head_uncomp_size;
-
-  int total_comp_size;
-  int total_uncomp_size;
-
-  int unpack_failed;
-  int total_received;
-
-//  int *stats_packing;
-  int n_stats_packing;
-  
-  int stats_packing[10];
-
-  struct in_addr dst_addr;
-  struct in_addr src_addr;
-};
-
-int send_stats_udp(struct statitics *stats, struct in_addr dst_addr, struct in_addr src_addr)
+int send_stats_udp(struct statitics *stats, struct in_addr client_addr)
 {
     int sockfd;
     struct sockaddr_in servaddr;
     struct udp_stats s;
     int i;
 
-    /* copy statitics fields */
+    /* copy statitics main fields */
     s.decomp_failed = stats->decomp_failed;
     s.decomp_total = stats->decomp_total;
     s.comp_failed = stats->comp_failed;
@@ -194,14 +169,18 @@ int send_stats_udp(struct statitics *stats, struct in_addr dst_addr, struct in_a
     s.unpack_failed = stats->unpack_failed;
     s.total_received = stats->total_received;
 
-    /* copy statitics->stats_packing */
-    s.n_stats_packing = stats->n_stats_packing;
-    for(i = 1; i < stats->n_stats_packing; i++) {
-        s.stats_packing[i] = stats->stats_packing[i];
-    }
+	/* copy statitics->stats_packing */
+	if(stats->n_stats_packing > sizeof s.stats_packing / sizeof s.stats_packing[0]) {
+		trace(LOG_WARNING, "[stats] can't send packing info, packing=%d is too large",
+					 stats->n_stats_packing);
+	} else {
+		s.n_stats_packing = stats->n_stats_packing;
+		for(i = 1; i < stats->n_stats_packing; i++) {
+			s.stats_packing[i] = stats->stats_packing[i];
+		}
+	}
 
-    s.dst_addr.s_addr = dst_addr.s_addr;
-    s.src_addr.s_addr = src_addr.s_addr;
+    s.client_addr.s_addr = client_addr.s_addr;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     bzero(&servaddr,sizeof(servaddr));
@@ -1034,7 +1013,7 @@ static void dump_stats_client(struct iprohc_server_session *const client)
 			client_trace(client, LOG_INFO, "  %d packets: %d", i,
 			             client->session.tunnel.stats.stats_packing[i]);
 		}
-		send_stats_udp(&client->session.tunnel.stats, client->session.dst_addr, client->session.src_addr);
+		send_stats_udp(&client->session.tunnel.stats, client->session.dst_addr);
 	}
 	client_trace(client, LOG_INFO, "--------------------------------------------");
 }
