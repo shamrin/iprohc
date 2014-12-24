@@ -150,7 +150,7 @@ static void usage(void)
 /**
  * send client statistics as a UDP packet to local port
  */
-int send_stats_udp(struct statitics *stats, struct in_addr client_addr)
+int send_stats_udp(struct iprohc_server_session *const client)
 {
     int sockfd;
     struct sockaddr_in servaddr;
@@ -158,6 +158,12 @@ int send_stats_udp(struct statitics *stats, struct in_addr client_addr)
     int i;
 
     /* copy statitics main fields */
+    struct in_addr dst_addr;
+    dst_addr = client->session.dst_addr;
+    struct statitics *stats;
+    stats = &(client->session.tunnel.stats);
+
+    /* copy statitics fields */
     s.decomp_failed = stats->decomp_failed;
     s.decomp_total = stats->decomp_total;
     s.comp_failed = stats->comp_failed;
@@ -180,7 +186,7 @@ int send_stats_udp(struct statitics *stats, struct in_addr client_addr)
 		}
 	}
 
-    s.client_addr.s_addr = client_addr.s_addr;
+    s.client_addr.s_addr = dst_addr.s_addr;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     bzero(&servaddr,sizeof(servaddr));
@@ -246,6 +252,11 @@ int main(int argc, char *argv[])
 
 	struct server_opts server_opts;
 	FILE*pid;
+
+  // timers for periodical statistics update 
+  struct timeval last_stats;
+  struct timeval stats_timeout;
+  stats_timeout.tv_sec = 1;
 
 	bool is_ok;
 	int c;
@@ -617,6 +628,7 @@ int main(int argc, char *argv[])
 	/* Start listening and looping on TCP socket */
 	trace(LOG_INFO, "[main] server is now ready to accept requests from clients");
 	is_server_alive = true;
+  gettimeofday(&last_stats, NULL);
 	while(is_server_alive)
 	{
 		const int timeout = 10 * 1000; /* in milliseconds */
@@ -766,6 +778,22 @@ int main(int argc, char *argv[])
 				assert(clients_nr < server_opts.clients_max_nr);
 			}
 		}
+
+    if(now.tv_sec > last_stats.tv_sec + stats_timeout.tv_sec)
+    {
+      for(j = 0; j < server_opts.clients_max_nr; j++)
+      {
+        if(AO_load_acquire_read(&(clients[j].is_init)))
+        {
+          if (send_stats_udp(&(clients[j])) < 0)
+          {
+            trace(LOG_ERR, "Unable to send UDP server stats");
+          }
+        }
+      }
+      gettimeofday(&last_stats, NULL);
+    }
+
 	}
 	trace(LOG_INFO, "[main] stopping server...");
 
@@ -1013,7 +1041,7 @@ static void dump_stats_client(struct iprohc_server_session *const client)
 			client_trace(client, LOG_INFO, "  %d packets: %d", i,
 			             client->session.tunnel.stats.stats_packing[i]);
 		}
-		send_stats_udp(&client->session.tunnel.stats, client->session.dst_addr);
+		// send_stats_udp(&client->session.tunnel.stats, client->session.dst_addr, client->session.src_addr);
 	}
 	client_trace(client, LOG_INFO, "--------------------------------------------");
 }
