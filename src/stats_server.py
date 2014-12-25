@@ -37,7 +37,6 @@ while True:
         total_received = stats.total_received,
 
         stats_packing = stats_packing,
-        dst_addr = socket.inet_ntoa(ffi.buffer(ffi.addressof(stats.dst_addr))),
-        src_addr = socket.inet_ntoa(ffi.buffer(ffi.addressof(stats.src_addr))),
+        client_addr = socket.inet_ntoa(ffi.buffer(ffi.addressof(stats.client_addr))),
 #        n_stats_packing = stats.n_stats_packing,
     ), indent=2)
