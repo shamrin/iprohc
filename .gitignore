@@ -1,0 +1,7 @@
+*.la
+*.lo
+*.o
+*.in
+*.pyc
+config*
+Makefile
