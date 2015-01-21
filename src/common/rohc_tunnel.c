@@ -934,6 +934,9 @@ int tun2raw(struct rohc_comp *comp,
 
 	unsigned char *ip_payload;
 
+	static bool first_packet = true;
+	static u_int16_t ip_id = 0;
+
 	int ret;
 	bool ok;
 
@@ -978,6 +981,21 @@ int tun2raw(struct rohc_comp *comp,
 	ip_header = (struct iphdr *) packet;
 	/* skip the IPv4 header */
 	ip_payload = packet + (ip_header->ihl * 4);
+
+	/* rewrite value of ip id field, if it is not incremented with the step = 1 */
+	if (first_packet) {
+		ip_id = ip_header->id;
+		first_packet = false;
+	} else if (ip_header->id != ip_id + 1) {
+		if (ip_id == 0xffff) {
+			ip_id = 0;
+		}
+		ip_header->id = ip_id + 1;
+		ip_id ++;
+		/* we should calculate ip checksum, because we changed ip header */
+		ip_header->check = 0;
+		ip_header->check = ip_fast_csum(ip_header, ip_header->ihl);
+	}
 
 	/* detect udp protocol */
 	if (ip_header->protocol == 0x11) {
