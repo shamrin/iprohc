@@ -929,6 +929,11 @@ int tun2raw(struct rohc_comp *comp,
 
 	rohc_comp_last_packet_info2_t last_packet_info;
 
+	struct iphdr *ip_header;
+	struct udphdr *udp_header;
+
+	unsigned char *ip_payload;
+
 	int ret;
 	bool ok;
 
@@ -969,6 +974,17 @@ int tun2raw(struct rohc_comp *comp,
 	/* XXX : To be parametrized if fd is not tun */
 	packet = buffer + sizeof(struct tun_pi);
 	packet_len = buffer_len - sizeof(struct tun_pi);
+
+	ip_header = (struct iphdr *) packet;
+	/* skip the IPv4 header */
+	ip_payload = packet + (ip_header->ihl * 4);
+
+	/* detect udp protocol */
+	if (ip_header->protocol == 0x11) {
+		/* set udp checksum to 0 */
+		udp_header = (struct udphdr *) ip_payload;
+		udp_header->check = 0;
+	}
 
 	/* update stats */
 	stats->comp_total++;
